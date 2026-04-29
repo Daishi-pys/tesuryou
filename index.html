@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>弥生会計解析くん v1.0</title>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.58.0/build/stlite.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      stlite.mount({
+        requirements: ["pandas"],
+        entrypoint: "main.py",
+        files: {
+          "main.py": `
+import streamlit as st
+import pandas as pd
+
+# ページ設定
+st.set_page_config(page_title="弥生解析アプリ", layout="wide")
+
+# --- 共通の項目定義 ---
+YAYOI_COLS = [
+    "識別", "伝票番号", "決算", "取引日付", "借方勘定", "借方補助", "借方部門", 
+    "借方税区分", "借方金額", "借方税額", "貸方勘定", "貸方補助", "貸方部門", 
+    "貸方税区分", "貸方金額", "貸方税額", "摘要", "番号", "期日", "タイプ", 
+    "生成元", "仕訳状態", "付箋1", "付箋2", "調整"
+]
+
+# --- サイドバーでページ切り替え ---
+st.sidebar.title("メニュー")
+page = st.sidebar.radio("移動先", ["1. ファイル読み込み", "2. 全項目ユニーク集計", "3. 特定項目の詳細"])
+
+# データを保持するためのセッション
+if "df" not in st.session_state:
+    st.session_state.df = None
+
+# --- ページ1: ファイル読み込み ---
+if page == "1. ファイル読み込み":
+    st.title("📂 弥生会計CSV 読み込み")
+    st.write("弥生会計からエクスポートした仕訳CSVを選択してな。")
+    
+    uploaded_file = st.file_uploader("CSVファイルをドロップ", type="csv")
+    
+    if uploaded_file:
+        try:
+            # 弥生特有のShift-JIS読み込み
+            df = pd.read_csv(uploaded_file, encoding='cp932', header=None)
+            # 列名割り当て（足りない分は連番）
+            df.columns = YAYOI_COLS + [f"予備{i}" for i in range(len(df.columns) - len(YAYOI_COLS))]
+            
+            st.session_state.df = df
+            st.success("読み込み成功だンゴ！")
+            st.write("### データのチラ見せ（最初の5行）")
+            st.dataframe(df.head())
+        except Exception as e:
+            st.error(f"エラー発生： {e}")
+
+# --- ページ2: 全項目ユニーク集計 ---
+elif page == "2. 全項目ユニーク集計":
+    st.title("📊 全項目の種類（ユニーク値）数")
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        
+        # 統計データ作成
+        stats = []
+        for col in df.columns:
+            u_count = df[col].nunique()
+            example = df[col].dropna().unique()[:3].tolist()
+            stats.append({"項目名": col, "種類数": u_count, "サンプル": example})
+        
+        st.table(pd.DataFrame(stats))
+    else:
+        st.warning("先にファイルを読み込んでな！")
+
+# --- ページ3: 特定項目の詳細 ---
+elif page == "3. 特定項目の詳細":
+    st.title("🔍 特定項目の深掘り")
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        target = st.selectbox("詳しく見たい項目を選んでな", df.columns)
+        
+        unique_list = df[target].dropna().unique().tolist()
+        st.write(f"### 「{target}」のユニークな値一覧 ({len(unique_list)}件)")
+        st.write(unique_list)
+        
+        # 簡易検索
+        search_word = st.text_input(f"{target} の中で絞り込み検索")
+        if search_word:
+            filtered = [x for x in unique_list if search_word in str(x)]
+            st.write(filtered)
+    else:
+        st.warning("先にファイルを読み込んでな！")
+          `
+        }
+      }, document.getElementById("root"));
+    </script>
+  </body>
+</html>
