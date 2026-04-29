@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>弥生会計解析ツール</title>
+    <title>弥生解析くん - GitHub Pages版</title>
   </head>
   <body>
     <div id="root"></div>
@@ -19,23 +19,35 @@ import streamlit as st
 import pandas as pd
 
 st.title("弥生会計・全項目解析くん")
-st.info("GitHub Pagesでの起動に成功したンゴ！")
+st.info("GitHub Pagesで正常に起動したンゴ！")
 
 uploaded_file = st.file_uploader("仕訳CSVをアップロード", type="csv")
 
 if uploaded_file:
     try:
+        # 弥生形式（Shift-JIS）で読み込み
         df = pd.read_csv(uploaded_file, encoding='cp932', header=None)
-        st.success("読み込み完了！")
-        st.write("### データのプレビュー")
-        st.dataframe(df.head())
         
-        st.write("### ユニーク値の集計")
-        col_idx = st.selectbox("項目を選んでな", range(len(df.columns)))
-        unique_vals = df[col_idx].dropna().unique()
-        st.write(unique_vals.tolist())
+        st.success("読み込み完了！")
+        
+        tab1, tab2 = st.tabs(["プレビュー", "ユニーク値集計"])
+        
+        with tab1:
+            st.dataframe(df.head(20))
+            
+        with tab2:
+            st.write("### 項目ごとのユニークな値")
+            # 列番号をセレクトボックスで選択
+            col_idx = st.selectbox("解析したい列（0番〜）を選んでな", range(len(df.columns)))
+            
+            # ユニーク値を抽出してリスト表示
+            unique_vals = df[col_idx].dropna().unique().tolist()
+            st.write(f"**種類数: {len(unique_vals)}**")
+            st.write(unique_vals)
+            
     except Exception as e:
-        st.error(f"エラー: {e}")
+        st.error(f"読み込みエラー: {e}")
+        st.info("※弥生のCSVはShift-JIS（CP932）である必要があります。")
           `
         }
       }, document.getElementById("root"));
